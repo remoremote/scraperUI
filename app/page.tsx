@@ -1,121 +1,140 @@
 "use client";
-import Form from "@/components/Form";
-import Notice from "@/components/Notice";
-import { ModeToggle } from "@/components/theme-toggle";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+
+const exampleTasks = [
+  { 
+    name: "eichelmann", 
+    url: "https://www.homegate.ch/anbieter/t056/eichelmann-real-estate-gmb-h/mieten/alle-mietinserate/trefferliste-ag",
+    jsonUrl: "https://www.homegate.ch/anbieter/t056/eichelmann-real-estate-gmb-h/mieten/alle-mietinserate/trefferliste-ag.json",
+  },
+  { 
+    name: "centerio", 
+    url: "https://www.homegate.ch/agency/n187/centerio-ag/rent/rent-listings/matching-list-ag",
+    jsonUrl: "https://www.homegate.ch/agency/n187/centerio-ag/rent/rent-listings/matching-list-ag.json",
+  },
+];
 
 export default function Home() {
-    const [weblnEnabled, setWebLnEnabled] = useState<"loading" | boolean>(
-        "loading",
-    );
+  const [url, setUrl] = useState("");
+  const [name, setName] = useState("");
+  const { toast } = useToast();
 
-    useEffect(() => {
-        setWebLnEnabled(typeof window.webln !== "undefined");
-    }, []);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await triggerScrapingTask(url, name);
+  };
 
-    return (
-        <main className="flex min-h-screen flex-col">
-            <div className="flex justify-end p-2 border-b border-border">
-                <ModeToggle />
+  const triggerScrapingTask = async (url: string, name: string) => {
+    const response = await fetch("/api/scrape", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url, name }),
+    });
+
+    if (response.ok) {
+      toast({
+        title: "Success",
+        description: `Scraping task ${name} added successfully!`,
+        duration: 2500,
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: `Failed to add scraping task ${name}.`,
+        duration: 2500,
+      });
+    }
+  };
+
+  const handleScrapeAll = async () => {
+    for (const task of exampleTasks) {
+      await triggerScrapingTask(task.url, task.name);
+    }
+  };
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-4">
+      <Card className="w-full max-w-xl mb-8">
+        <CardHeader>
+          <CardTitle>Homegate.ch Scraper</CardTitle>
+          <CardDescription>
+            Input URLs and name each scraping task to extract detailed information from property listings.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="name">Task Name</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="e.g., eichelmann"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="p-2"
+              />
             </div>
-            {typeof weblnEnabled === "string" ? (
-                <div className="flex items-center justify-center p-4 grow">
-                    <div className="flex flex-col gap-4">
-                        <Skeleton className="w-[280px] h-[24px]"></Skeleton>
-                        <Skeleton className="w-[280px] h-[24px]"></Skeleton>
-                        <Skeleton className="w-[280px] h-[24px]"></Skeleton>
-                    </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="url">URL</Label>
+              <Input
+                id="url"
+                type="url"
+                placeholder="https://www.homegate.ch/..."
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                required
+                className="p-2"
+              />
+            </div>
+
+            <Button type="submit" variant="primary" className="w-full py-2">
+              Add Scraping Task
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <div className="w-full max-w-xl mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Scraper Task list</CardTitle>
+            <CardDescription>
+              Below are some example URLs and task names to help visualize the UI.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {exampleTasks.map((task, index) => (
+              <div key={index} className="mb-4 border-b border-gray-200 pb-4 last:border-0 last:pb-0">
+                <p className="font-medium"><strong>Task Name:</strong> {task.name}</p>
+                <p className="mb-2"><strong>URL:</strong> 
+                  <a href={task.url} target="_blank" rel="noopener noreferrer" className="underline text-gray-800 hover:text-gray-600">{task.url}</a>
+                </p>
+                <div className="flex gap-2">
+                  <Button as="a" href={task.jsonUrl} target="_blank" variant="secondary" className="flex-1">
+                    View JSON
+                  </Button>
+                  <Button onClick={() => triggerScrapingTask(task.url, task.name)} variant="secondary" className="flex-1">
+                    Scrape
+                  </Button>
                 </div>
-            ) : (
-                <div className="flex items-center justify-center p-4 grow">
-                    {weblnEnabled ? <Form /> : <Notice />}
-                </div>
-            )}
-        </main>
-    );
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Button onClick={handleScrapeAll} className="w-full max-w-xs py-3" variant="destructive" size="lg">
+        Scrape All Tasks
+      </Button>
+    </main>
+  );
 }
-
-// TODOs:
-
-// 1. Detect WebLN ✅
-// 2. Form with:
-//         a. toggle "Send To" / "Receive From" ✅
-//         b. Dropdown select "USDCETH"/"USDTETH"/"USDCTRX"/"USDTTRX" ✅
-//         c. Input for amount ✅
-//         d. Input for address (Only on send to) ✅
-
-// 3. Camera button, opens a camera to read a QR code, which will populate the form fields instead
-
-
-// API Flow (just do send for now)
-
-// 1. User selects currency -> hit /exchange-rate , returns min and max amounts for amount field
-// 2. User inputs amount and destination address
-// 3. User clicks send -> hit create order, returns the lightning invoice to send to, pass that into webln.sendPayment
-
-// what send looks like for send 5 USD to USDC from  Lightning
-
-// -d '{"fromCcy":"BTCLN","toCcy":"USDCETH","amount":5,direction":"to","type":"fixed","toAddress":"your_metamask_address"}'
-
-
-// convert this to javascript:
-
-// import hmac
-// import json
-// import hashlib
-// import requests
-
-// def sign(data):
-//   return hmac.new(
-//     key=YOUR_API_SECRET.encode(),
-//     msg=data.encode(),
-//     digestmod=hashlib.sha256
-//   ).hexdigest()
-
-
-// def request(method, params={}):
-//   url = 'https://ff.io/api/v2/' + method
-//   data = json.dumps(params)
-//   headers = {
-//     'X-API-KEY': YOUR_API_KEY,
-//     'X-API-SIGN': sign(data)
-//   }
-//   r = requests.post(url, data=data, headers=headers)
-//   return r.json()
-
-// request(METHOD, DATA)
-
-
-// ethereum:0xCONTRACT_ADDRESS/transfer?address=0xRECIPIENT_ADDRESS&uint256=1
-
-// const currenciesData = [
-//   {
-//     code: "USDCETH",
-//     contract_address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-//     logo: "https://fixedfloat.com/assets/images/coins/svg/usdceth.svg",
-//     name: "USDCETH",
-//     network: "ETH",
-//   },
-//   {
-//     code: "USDCTRC",
-//     contract_address: "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8",
-//     logo: "https://fixedfloat.com/assets/images/coins/svg/usdctrc.svg",
-//     name: "USDCTRC",
-//     network: "TRX",
-//   },
-//   {
-//     code: "USDT",
-//     contract_address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-//     logo: "https://fixedfloat.com/assets/images/coins/svg/usdt.svg",
-//     name: "USDTETH",
-//     network: "ETH",
-//   },
-//   {
-//     code: "USDTTRC",
-//     contract_address: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
-//     logo: "https://fixedfloat.com/assets/images/coins/svg/usdttrc.svg",
-//     name: "USDTTRC",
-//     network: "TRX",
-//   },
-// ];
